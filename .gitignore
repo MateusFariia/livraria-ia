@@ -1,0 +1,21 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.exemplo
+.streamlit/secrets.toml
+.mcp.json
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editores e sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
