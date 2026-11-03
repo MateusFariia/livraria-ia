@@ -9,7 +9,7 @@ A diretoria de uma livraria fictícia quer saber o que tem em catálogo, quanto 
 ```mermaid
 flowchart LR
     A[books.toscrape.com] -->|scraping| B[(bronze.livros<br/>dados crus)]
-    B -->|R1 a R7| C[(prata.livros<br/>dados limpos)]
+    B -->|R1 a R8| C[(prata.livros<br/>dados limpos)]
     C -->|M1 a M4| D[(ouro.livros<br/>ouro.categorias)]
     D --> E[Agente SQL]
     C --> E
@@ -23,7 +23,7 @@ flowchart LR
 | Camada | O que faz |
 | :---- | :---- |
 | **Bronze** | Guarda os textos exatamente como vieram do site. É append-only: cada execução insere de novo. |
-| **Prata** | View em SQL puro que remove duplicidade por `upc` e converte preço, avaliação, estoque e reviews. |
+| **Prata** | View em SQL puro que remove duplicidade por `upc`, converte preço, avaliação, estoque e reviews e corrige o encoding dos títulos. |
 | **Ouro** | Views em SQL puro com as métricas de negócio: valor em estoque, faixa de preço e livro bem avaliado. |
 | **Agente** | Transforma a pergunta em um `SELECT`, executa no banco e responde em português. |
 | **Servidor MCP** | Oferece o contexto, o schema e as consultas somente leitura como ferramentas para clientes MCP. |
@@ -154,7 +154,6 @@ AGENTS.md              Regras para agentes de código neste projeto
 
 **Limitações conhecidas**
 
-- 9 dos 1.000 títulos têm caracteres com encoding incorreto, como `Shakespeareâ…s`. Isso não afeta os números.
 - O repositório não tem uma suíte de testes automatizados. A validação segue os critérios de aceite de cada etapa do `SPEC.md`.
 - O servidor MCP ainda não foi testado no MCP Inspector, no Claude Desktop nem no Claude Code.
 

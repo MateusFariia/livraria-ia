@@ -1,6 +1,6 @@
 # SPEC.md · Como construir, etapa por etapa
 
-> Execute **uma etapa por vez**, só quando pedido. As decisões de negócio estão no **PRD.md**; as regras técnicas (R1–R7, M1–M4) e o dicionário estão aqui. O agente SQL (Etapa 4\) e o MCP (Etapa 5\) leem o PRD.md e este arquivo inteiros a cada pergunta.
+> Execute **uma etapa por vez**, só quando pedido. As decisões de negócio estão no **PRD.md**; as regras técnicas (R1–R8, M1–M4) e o dicionário estão aqui. O agente SQL (Etapa 4\) e o MCP (Etapa 5\) leem o PRD.md e este arquivo inteiros a cada pergunta.
 
 ```
 books.toscrape.com ──► bronze.livros ──► prata.livros ──► ouro.livros / ouro.categorias ──► agente SQL ──► MCP
@@ -14,7 +14,7 @@ books.toscrape.com ──► bronze.livros ──► prata.livros ──► ouro
 | etapa | status | decisões tomadas / observações |
 | :---- | :---- | :---- |
 | 1 · Scraping → bronze | ✅ feito e aprovado | Gravação via MCP do Supabase, sem `.env`: um script Python não acessa o MCP da sessão do agente, então criei `--saida-sql` em `01_scraper_bronze.py`, que gera o SQL para o agente executar. Na 2ª carga (`--paginas 2`), assinatura MD5 idêntica à da 1ª: gravada com `insert ... select` da 1ª, com o `_execucao_id` próprio. `id` com `primary key` (a SPEC só pedia `bigserial`). `descricao` lida de `#product_description + p` (seletor não previsto na SPEC). Depois, com `DATABASE_URL`, `aplicar_sql.py` e a gravação direta do scraper foram testados, e a carga completa de 50 páginas gravou 1.000 linhas. Bronze atual: 1.080 linhas (40 + 40 + 1.000) e 1.000 `upc` distintos. |
-| 2 · Prata | ✅ feito e aprovado | Aplicada via MCP do Supabase e reaplicada com `python aplicar_sql.py sql/01_prata.sql`. R1: empate em `_ingestao_em` desempata por `id` mais recente. R7: `btrim` em `upc`, `titulo`, `categoria` e `url`, incluindo tab e quebra de linha. Mojibake em `titulo` **não é tratado**, pois nenhuma regra cobre (9 de 1.000 títulos, ex.: "Shakespeareâ..."). A view expõe 1.000 livros únicos; 219 ficam em `Sem categoria` (152 `Default` e 67 `Add a comment`). Sem exemplo nos dados atuais: estoque sem número (R4) e cargas com dados diferentes para o mesmo `upc` (R1). |
+| 2 · Prata | ✅ feito e aprovado | Aplicada via MCP do Supabase e reaplicada com `python aplicar_sql.py sql/01_prata.sql`. R1: empate em `_ingestao_em` desempata por `id` mais recente. R7: `btrim` em `upc`, `titulo`, `categoria` e `url`, incluindo tab e quebra de linha. R8, criada a pedido do usuário depois da aprovação da etapa, corrige o mojibake em `titulo` (9 de 1.000 títulos) só na prata, com `collate "default"` para manter a coluna compatível com `create or replace view`. A view expõe 1.000 livros únicos; 219 ficam em `Sem categoria` (152 `Default` e 67 `Add a comment`). Sem exemplo nos dados atuais: estoque sem número (R4) e cargas com dados diferentes para o mesmo `upc` (R1). |
 | 3 · Ouro | ✅ feito e aprovado | Aplicada via MCP do Supabase e reaplicada com `python aplicar_sql.py sql/02_ouro.sql`. `ouro.categorias` mantém a linha `Sem categoria`, exigida pelo critério `sum(qtd_titulos)` = total da prata; a exclusão de M4 fica nas consultas de ranking (Etapas 4 e 5). Sem coluna em reais, pois o dicionário não prevê: a conversão de M4 (× 7,20) também fica nas consultas. `preco_medio_gbp`, `rating_medio` e `pct_bem_avaliados` arredondados para 2 casas; `pct_bem_avaliados` na escala 0–100. Views calculadas sobre os 1.000 livros, em 49 categorias. |
 | 4 · Agente SQL | ✅ feito e aprovado | Critérios rodados com `claude-opus-5-5` e banco reais, sobre os 1.000 livros. Frontend `app_streamlit.py` e biblioteca `streamlit` adicionados a pedido do usuário. Cada pergunta consulta o banco de novo; o histórico leva só perguntas e respostas, para permitir esclarecimentos. `--sem-contexto` lê `public`, `bronze`, `prata` e `ouro`, não os schemas internos do Supabase, para não expor `auth` e similares ao LLM; a bronze só é recusada com o contexto ligado. Guardrails além da SPEC: bloqueio de funções `pg_*`, `set_config`, `dblink`, `query_to_xml` e similares, schemas internos e strings `E''`/`U&`. O bloqueio recusa qualquer SQL com a palavra `bronze`, mesmo em texto. Esta tabela de Estado também entra no contexto do agente: notas desatualizadas aparecem nas respostas, então ela precisa refletir o estado atual da base. |
 | 5 · Servidor MCP | ✅ feito e aprovado | Usa `MCPServer`, novo nome do `FastMCP` na biblioteca `mcp` 2.x, com `mcp[cli]>=2,<3` no `requirements.txt`. Guardrails reaproveitados de `04_sql_agent.py`. Recusas e erros de SQL voltam ao cliente com o motivo (`ToolError`); falhas de conexão ficam só no log do servidor, para não expor o host. Critérios verificados com o cliente stdio oficial da biblioteca e com `claude-opus-5-5` usando as ferramentas do servidor. **`mcp dev` não foi executado**, pois exige Node.js, ausente nesta máquina; a listagem das 3 ferramentas e o `consultar` foram verificados pelo cliente stdio. O Inspector, o Claude Desktop e o Claude Code não foram testados como clientes. |
@@ -28,7 +28,7 @@ books.toscrape.com ──► bronze.livros ──► prata.livros ──► ouro
 - Site público feito para treinar scraping. 50 páginas × 20 livros \= 1.000 livros.  
 - Listagem: `https://books.toscrape.com/catalogue/page-{n}.html` → links em `article.product_pod h3 a`.  
 - Detalhe do livro: título em `div.product_main h1`; preço em `div.product_main p.price_color`; avaliação na classe de `p.star-rating` (ex.: `star-rating Three`); tabela `table.table` com `UPC`, `Availability`, `Number of reviews`; categoria no 3º link de `ul.breadcrumb`.  
-- **Encoding:** o site não declara charset. Com `requests`, o `£` costuma chegar como `Â£`. Na bronze isso fica como veio; R2 resolve na prata.  
+- **Encoding:** o site não declara charset. Com `requests`, o `£` costuma chegar como `Â£`. Na bronze isso fica como veio; R2 resolve o preço e R8 resolve o título na prata.  
 - Campos do `payload` na bronze: `url`, `titulo`, `preco_raw`, `rating_raw`, `estoque_raw`, `upc`, `n_reviews_raw`, `categoria_raw`, `descricao`.
 
 ## Regras: bronze → prata
@@ -39,7 +39,8 @@ books.toscrape.com ──► bronze.livros ──► prata.livros ──► ouro
 - **R4 · Estoque:** de `In stock (22 available)` extrair `22` → `estoque_qtd int`. Sem número \= 0\.  
 - **R5 · Reviews:** `n_reviews_raw` → `n_reviews int`.  
 - **R6 · Categoria:** `Default` e `Add a comment` não são categorias → `Sem categoria`.  
-- **R7 · Texto:** remover espaços nas pontas.
+- **R7 · Texto:** remover espaços nas pontas.  
+- **R8 · Encoding do título:** o `titulo` em UTF-8 lido como Latin-1 volta ao texto correto (ex.: `CafÃ©` → `Café`). Título que não forme UTF-8 válido fica como veio. A bronze não muda.
 
 ## Métricas: ouro
 
@@ -84,14 +85,15 @@ Critérios de aceite
 
 Requisitos
 
-- Aplicar **R1 a R7**, com `-- R<n>` em cada linha que aplica regra.  
+- Aplicar **R1 a R8**, com `-- R<n>` em cada linha que aplica regra.  
 - Colunas exatamente como no dicionário.
 
 Critérios de aceite
 
 - `count(*) = count(distinct upc)`.  
 - Nenhum `preco_gbp`, `rating` ou `estoque_qtd` nulo.  
-- Nenhuma categoria `Default` ou `Add a comment`.
+- Nenhuma categoria `Default` ou `Add a comment`.  
+- Nenhum `titulo` com mojibake (`â`, `Ã` ou `Â` seguidos de byte de continuação).
 
 ---
 
