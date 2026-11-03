@@ -13,8 +13,11 @@ flowchart LR
     C -->|M1 a M4| D[(ouro.livros<br/>ouro.categorias)]
     D --> E[Agente SQL]
     C --> E
+    C --> H[Servidor MCP]
+    D --> H
     E --> F[Terminal]
     E --> G[Interface Streamlit]
+    H --> I[Clientes MCP]
 ```
 
 | Camada | O que faz |
@@ -23,6 +26,7 @@ flowchart LR
 | **Prata** | View em SQL puro que remove duplicidade por `upc` e converte preço, avaliação, estoque e reviews. |
 | **Ouro** | Views em SQL puro com as métricas de negócio: valor em estoque, faixa de preço e livro bem avaliado. |
 | **Agente** | Transforma a pergunta em um `SELECT`, executa no banco e responde em português. |
+| **Servidor MCP** | Oferece o contexto, o schema e as consultas somente leitura como ferramentas para clientes MCP. |
 
 ## O diferencial: contexto
 
@@ -57,9 +61,23 @@ O SQL vem de um LLM, então ele é tratado como entrada não confiável:
 - **Bronze bloqueada:** com o contexto ligado, qualquer SQL que cite a bronze é recusado.
 - **Correção assistida:** até 3 tentativas, com o erro devolvido ao modelo.
 
+O servidor MCP usa os mesmos guardrails, e nele a bronze é sempre recusada.
+
+## Servidor MCP
+
+O servidor expõe três ferramentas por stdio, e cada descrição orienta o modelo sobre quando usá-la:
+
+| Ferramenta | O que faz |
+| :---- | :---- |
+| `ler_contexto` | Devolve o `PRD.md` e o `SPEC.md`. Deve ser usada antes de escrever SQL. |
+| `listar_schema` | Lista tabelas, colunas e tipos reais de prata e ouro. |
+| `consultar` | Executa um `SELECT` de até 50 linhas e devolve também o SQL executado, para mostrar ao usuário. |
+
+Testado com o cliente stdio oficial da biblioteca `mcp` e com `claude-opus-5-5` usando essas ferramentas. Sem instruções além das descrições, o modelo leu o contexto e chegou a `Nonfiction`, R$ 231.287,47, com o câmbio de 7,20 e sem `Sem categoria`.
+
 ## Stack
 
-Python 3.14 · PostgreSQL no Supabase · `requests` · `beautifulsoup4` · `psycopg` · Streamlit · API da Anthropic ou da OpenAI
+Python 3.14 · PostgreSQL no Supabase · `requests` · `beautifulsoup4` · `psycopg` · Streamlit · `mcp` · API da Anthropic ou da OpenAI
 
 ## Como rodar
 
@@ -105,6 +123,10 @@ Python 3.14 · PostgreSQL no Supabase · `requests` · `beautifulsoup4` · `psyc
 
 Cada pergunta faz chamadas pagas à API do provedor escolhido.
 
+5. Para usar o servidor MCP, copie o conteúdo de [`mcp_config.exemplo.json`](mcp_config.exemplo.json) para a configuração do seu cliente MCP e troque os caminhos pelos do seu projeto. O servidor lê a `DATABASE_URL` do `.env`, então nenhum segredo fica nesse arquivo.
+
+   Para inspecionar as ferramentas, rode `mcp dev 05_mcp_server.py`, que exige Node.js.
+
 ## Estrutura
 
 ```
@@ -112,6 +134,8 @@ Cada pergunta faz chamadas pagas à API do provedor escolhido.
 aplicar_sql.py         Executa arquivos .sql e consultas
 04_sql_agent.py        Agente SQL e guardrails
 app_streamlit.py       Interface web do agente
+05_mcp_server.py       Servidor MCP somente leitura
+mcp_config.exemplo.json  Exemplo de configuração do cliente MCP
 sql/                   Tabela bronze e views de prata e ouro
 PRD.md                 O porquê: problema e decisões de negócio
 SPEC.md                O como: regras, métricas e etapas
@@ -126,12 +150,13 @@ AGENTS.md              Regras para agentes de código neste projeto
 | Prata | ✅ |
 | Ouro | ✅ |
 | Agente SQL e interface web | ✅ |
-| Servidor MCP | ⏳ planejado |
+| Servidor MCP | ✅ |
 
 **Limitações conhecidas**
 
 - 9 dos 1.000 títulos têm caracteres com encoding incorreto, como `Shakespeareâ…s`. Isso não afeta os números.
 - O repositório não tem uma suíte de testes automatizados. A validação segue os critérios de aceite de cada etapa do `SPEC.md`.
+- O servidor MCP ainda não foi testado no MCP Inspector, no Claude Desktop nem no Claude Code.
 
 ## Sobre os dados
 

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "livraria-inteligente": {
+      "command": "C:/caminho/do/projeto/.venv/Scripts/python.exe",
+      "args": ["C:/caminho/do/projeto/05_mcp_server.py"]
+    }
+  }
+}

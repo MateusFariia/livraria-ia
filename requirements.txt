@@ -2,7 +2,7 @@ requests
 beautifulsoup4
 psycopg[binary]
 python-dotenv
-mcp[cli]
+mcp[cli]>=2,<3
 openai
 anthropic
 streamlit
