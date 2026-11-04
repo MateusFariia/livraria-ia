@@ -1,6 +1,6 @@
 # 📚 Livraria Inteligente
 
-Pipeline de dados em arquitetura medalhão (bronze, prata e ouro) e um **agente de IA que responde em português** perguntas de negócio, gerando e executando SQL com segurança.
+Projeto E2E com inteligência artificial que faz scraping de uma livraria fictícia e salva os dados em um banco organizado na arquitetura medalhão (Bronze, Silver e Gold). Por cima disso, um agente responde perguntas de negócio em linguagem natural, convertendo cada uma em uma consulta SQL (Text-to-SQL).
 
 A diretoria de uma livraria fictícia quer saber o que tem em catálogo, quanto vale o estoque e o que está bem avaliado. Hoje, cada pergunta vira um pedido ao time de dados. Aqui, ela é respondida em segundos, com o SQL à vista para conferência.
 
